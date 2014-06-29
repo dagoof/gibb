@@ -73,10 +73,7 @@ func (r *Receiver) Read() interface{} {
 // to the given pointer. If a pointer is not supplied, this method will never
 // return.
 func (r *Receiver) MustReadVal(v interface{}) {
-	for {
-		if fill.Fill(v, r.Read()) == nil {
-			return
-		}
+	for !r.ReadVal(v) {
 	}
 }
 
