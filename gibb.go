@@ -54,6 +54,11 @@ func NewBroadcaster() *Broadcaster {
 	}
 }
 
+// New is an alias for NewBroadcaster.
+func New() *Broadcaster {
+	return NewBroadcaster()
+}
+
 // Write a value to all listening receivers.
 func (b *Broadcaster) Write(v interface{}) {
 	c := make(chan message, 1)

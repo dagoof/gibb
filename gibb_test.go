@@ -120,3 +120,29 @@ func ExampleReceiver_ReadChan() {
 	// 2
 	// 3
 }
+
+func ExampleBroadcaster() {
+	bc := New()
+
+	ra := bc.Listen()
+	rb := bc.Listen()
+	rc := bc.Listen()
+
+	bc.Write(1)
+	bc.Write(2)
+
+	fmt.Println("ra:", ra.Read())
+	fmt.Println("rb:", rb.Read())
+	fmt.Println("rb:", rb.Read())
+	fmt.Println("ra:", ra.Read())
+	fmt.Println("rc:", rc.Read())
+	fmt.Println("rc:", rc.Read())
+
+	// Output:
+	// ra: 1
+	// rb: 1
+	// rb: 2
+	// ra: 2
+	// rc: 1
+	// rc: 2
+}
