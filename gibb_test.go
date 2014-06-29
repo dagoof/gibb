@@ -49,14 +49,19 @@ func ExampleReceiver_ReadVal() {
 	bc.Write("world")
 
 	var s string
+	var n int
 
 	fmt.Println(r.ReadVal(&s), s)
 	fmt.Println(r.ReadVal(&s), s)
+	fmt.Println(r.ReadVal(&n), n)
+	fmt.Println(r.ReadVal(&n), n)
 	fmt.Println(r.ReadVal(&s), s)
 
 	// Output:
 	// true hello
 	// false hello
+	// true 1
+	// false 1
 	// true world
 }
 
@@ -71,20 +76,24 @@ func ExampleReceiver_ReadVal_usage() {
 	bc.Write("done")
 
 	var n int
+	var s string
 
 	for r.ReadVal(&n) {
 		fmt.Println(n)
 	}
+	r.ReadVal(&s)
+	fmt.Println(s)
 
 	// Output:
 	// 0
 	// 1
 	// 2
 	// 3
+	// done
 }
 
 func ExampleReceiver_ReadChan() {
-	const numWritten = 5
+	const numWritten = 4
 
 	bc := NewBroadcaster()
 	r := bc.Listen()
@@ -110,5 +119,4 @@ func ExampleReceiver_ReadChan() {
 	// 1
 	// 2
 	// 3
-	// 4
 }

@@ -56,17 +56,36 @@ func (b *Broadcaster) Listen() *Receiver {
 	return &Receiver{sync.Mutex{}, b.c}
 }
 
+func (r *Receiver) read() message {
+	msg := <-r.c
+	r.c <- msg
+
+	return msg
+}
+
+func (r *Receiver) swap(m message) {
+	r.c = m.c
+}
+
 // Read a single value that has been broadcast. Blocks until messages have been
 // written.
 func (r *Receiver) Read() interface{} {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
-	msg := <-r.c
-	r.c <- msg
+	msg := r.read()
+	r.swap(msg)
 
-	r.c = msg.c
 	return msg.v
+}
+
+// Peek reads a single value that has been broadcast and then places it back
+// onto the receiver. Blocks until messages have been written.
+func (r *Receiver) Peek() interface{} {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	return r.read().v
 }
 
 // MustReadVal reads from a Receiver until it gets a value that is assignable
@@ -74,14 +93,25 @@ func (r *Receiver) Read() interface{} {
 // return.
 func (r *Receiver) MustReadVal(v interface{}) {
 	for !r.ReadVal(v) {
+		r.Read()
 	}
 }
 
 // ReadVal reads a value from the Reciver and attempts to write it into the
 // given pointer. If the read value can not be assigned to the given interface
-// for any reason, false will be returned.
+// for any reason, false will be returned and the value will be placed back onto
+// the receiver.
 func (r *Receiver) ReadVal(v interface{}) bool {
-	return fill.Fill(v, r.Read()) == nil
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	msg := r.read()
+	ok := fill.Fill(v, msg.v) == nil
+	if ok {
+		r.swap(msg)
+	}
+
+	return ok
 }
 
 // ReadChan locks the receiver and writes any broadcasted messages to the output
@@ -102,7 +132,7 @@ func (r *Receiver) ReadChan() (<-chan interface{}, chan struct{}) {
 				return
 			case msg := <-r.c:
 				r.c <- msg
-				r.c = msg.c
+				r.swap(msg)
 
 				vc <- msg.v
 			}
