@@ -44,19 +44,14 @@ type Receiver struct {
 	c  chan message
 }
 
-// NewBroadcaster creates a new broadcaster with the necessary internal
+// New creates a new broadcaster with the necessary internal
 // structure. The uninitialized broadcaster is unsuitable to be listened or
 // written to.
-func NewBroadcaster() *Broadcaster {
+func New() *Broadcaster {
 	return &Broadcaster{
 		sync.Mutex{},
 		make(chan message, 1),
 	}
-}
-
-// New is an alias for NewBroadcaster.
-func New() *Broadcaster {
-	return NewBroadcaster()
 }
 
 // Write a value to all listening receivers.

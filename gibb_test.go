@@ -3,7 +3,7 @@ package gibb
 import "fmt"
 
 func ExampleReceiver_Read() {
-	bc := NewBroadcaster()
+	bc := New()
 	r := bc.Listen()
 
 	bc.Write("hello")
@@ -21,7 +21,7 @@ func ExampleReceiver_Read() {
 }
 
 func ExampleReceiver_MustReadVal() {
-	bc := NewBroadcaster()
+	bc := New()
 	r := bc.Listen()
 
 	bc.Write("hello")
@@ -41,7 +41,7 @@ func ExampleReceiver_MustReadVal() {
 }
 
 func ExampleReceiver_ReadVal() {
-	bc := NewBroadcaster()
+	bc := New()
 	r := bc.Listen()
 
 	bc.Write("hello")
@@ -66,7 +66,7 @@ func ExampleReceiver_ReadVal() {
 }
 
 func ExampleReceiver_ReadVal_usage() {
-	bc := NewBroadcaster()
+	bc := New()
 	r := bc.Listen()
 
 	const N = 4
@@ -95,7 +95,7 @@ func ExampleReceiver_ReadVal_usage() {
 func ExampleReceiver_ReadChan() {
 	const numWritten = 4
 
-	bc := NewBroadcaster()
+	bc := New()
 	r := bc.Listen()
 
 	for i := 0; i < numWritten; i++ {
