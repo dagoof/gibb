@@ -69,14 +69,22 @@ func (r *Receiver) Read() interface{} {
 	return msg.v
 }
 
-// ReadVal reads from a Receiver until it gets a value that is assignable to the
-// given pointer. If a pointer is not supplied, this method will never return.
-func (r *Receiver) ReadVal(v interface{}) {
+// MustReadVal reads from a Receiver until it gets a value that is assignable
+// to the given pointer. If a pointer is not supplied, this method will never
+// return.
+func (r *Receiver) MustReadVal(v interface{}) {
 	for {
 		if fill.Fill(v, r.Read()) == nil {
 			return
 		}
 	}
+}
+
+// ReadVal reads a value from the Reciver and attempts to write it into the
+// given pointer. If the read value can not be assigned to the given interface
+// for any reason, false will be returned.
+func (r *Receiver) ReadVal(v interface{}) {
+	return fill.Fill(v, r.Read()) == nil
 }
 
 // ReadChan locks the receiver and writes any broadcasted messages to the output
