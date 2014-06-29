@@ -83,7 +83,7 @@ func (r *Receiver) MustReadVal(v interface{}) {
 // ReadVal reads a value from the Reciver and attempts to write it into the
 // given pointer. If the read value can not be assigned to the given interface
 // for any reason, false will be returned.
-func (r *Receiver) ReadVal(v interface{}) {
+func (r *Receiver) ReadVal(v interface{}) bool {
 	return fill.Fill(v, r.Read()) == nil
 }
 
