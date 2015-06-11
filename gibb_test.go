@@ -1,6 +1,10 @@
 package gibb
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
 func ExampleReceiver_Read() {
 	bc := New()
@@ -92,33 +96,51 @@ func ExampleReceiver_ReadVal_usage() {
 	// done
 }
 
-func ExampleReceiver_ReadChan() {
-	const numWritten = 4
+func ExampleReceiver_ReadVal_multiplex() {
+	type done struct{}
 
 	bc := New()
-	r := bc.Listen()
+	rs := bc.Listen()
+	ri := bc.Listen()
 
-	for i := 0; i < numWritten; i++ {
-		bc.Write(i)
-	}
+	bc.Write(1)
+	bc.Write(2)
+	bc.Write("a")
+	bc.Write("b")
+	bc.Write(3)
+	bc.Write("c")
 
-	vc, done := r.ReadChan()
+	bc.Write(done{})
 
 	var n int
-	for v := range vc {
-		n++
-		fmt.Println(v)
+	var s string
+	var d done
 
-		if n >= numWritten {
-			close(done)
+	for !rs.ReadVal(&d) {
+		if !rs.ReadVal(&s) {
+			rs.Read()
+			continue
 		}
+
+		fmt.Println("string stream", s)
+	}
+
+	for !ri.ReadVal(&d) {
+		if !ri.ReadVal(&n) {
+			ri.Read()
+			continue
+		}
+
+		fmt.Println("int stream", n)
 	}
 
 	// Output:
-	// 0
-	// 1
-	// 2
-	// 3
+	// string stream a
+	// string stream b
+	// string stream c
+	// int stream 1
+	// int stream 2
+	// int stream 3
 }
 
 func ExampleBroadcaster() {
@@ -145,4 +167,69 @@ func ExampleBroadcaster() {
 	// ra: 2
 	// rc: 1
 	// rc: 2
+}
+
+func ExampleReadTimeout() {
+	bc := New()
+
+	r := bc.Listen()
+
+	bc.Write(1)
+	bc.Write(2)
+
+	fmt.Println(r.Read())
+	fmt.Println(r.ReadTimeout(time.Second).Describe())
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		fmt.Println(r.ReadTimeout(time.Millisecond * 10).Describe())
+		wg.Done()
+	}()
+
+	go func() {
+		fmt.Println(r.ReadTimeout(time.Millisecond * 50).Describe())
+		wg.Done()
+	}()
+
+	time.Sleep(time.Millisecond * 15)
+	bc.Write(3)
+	wg.Wait()
+
+	// Output:
+	// 1
+	// just 2
+	// nothing
+	// just 3
+}
+
+func ExampleReadValCancel() {
+	bc := New()
+	r := bc.Listen()
+
+	bc.Write(1)
+	bc.Write("hello")
+	bc.Write(2)
+
+	var s string
+	var n int
+
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
+	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
+
+	// Output:
+	// invalid
+	// just 1
+	// invalid
+	// just hello
+	// invalid
+	// just 2
+	// invalid
+	// invalid
 }
