@@ -208,28 +208,66 @@ func ExampleReadValCancel() {
 	r := bc.Listen()
 
 	bc.Write(1)
+	bc.Write("a")
+	bc.Write(2)
+
+	var s string = "z"
+	var n int = -1
+	var mv MaybeVal
+
+	const S = "%v: %s\n"
+
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &s)
+	fmt.Printf(S, s, mv.Describe())
+
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &n)
+	fmt.Printf(S, n, mv.Describe())
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &n)
+	fmt.Printf(S, n, mv.Describe())
+
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &s)
+	fmt.Printf(S, s, mv.Describe())
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &s)
+	fmt.Printf(S, s, mv.Describe())
+
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &n)
+	fmt.Printf(S, n, mv.Describe())
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &n)
+	fmt.Printf(S, n, mv.Describe())
+
+	mv = r.ReadValCancel(Timeout(time.Millisecond), &s)
+	fmt.Printf(S, s, mv.Describe())
+
+	// Output:
+	// z: invalid
+	// 1: just 1
+	// 1: invalid
+	// a: just a
+	// a: invalid
+	// 2: just 2
+	// 2: invalid
+	// a: invalid
+}
+
+func ExampleMustReadValCancel() {
+	bc := New()
+	r := bc.Listen()
+
+	bc.Write(1)
 	bc.Write("hello")
 	bc.Write(2)
 
-	var s string
-	var n int
+	var s string = "not-set"
+	var n int = -1
 
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &n).Describe())
-	fmt.Println(r.ReadValCancel(Timeout(time.Millisecond), &s).Describe())
+	fmt.Println(r.MustReadValCancel(Timeout(time.Millisecond), &n), n)
+	fmt.Println(r.MustReadValCancel(Timeout(time.Millisecond), &n), n)
+	fmt.Println(r.MustReadValCancel(Timeout(time.Millisecond), &n), n)
+	fmt.Println(r.MustReadValCancel(Timeout(time.Millisecond), &s), s)
 
 	// Output:
-	// invalid
-	// just 1
-	// invalid
-	// just hello
-	// invalid
-	// just 2
-	// invalid
-	// invalid
+	// true 1
+	// true 2
+	// false 2
+	// false not-set
 }

@@ -276,3 +276,24 @@ func (r *Receiver) MustReadValCancel(stop <-chan struct{}, v interface{}) bool {
 
 	return false
 }
+
+func (r *Receiver) ReadChan() (<-chan interface{}, chan<- struct{}) {
+	var (
+		vc   = make(chan interface{})
+		stop = make(chan struct{})
+	)
+
+	go func() {
+		var maybe Maybe
+
+		for {
+			if maybe = r.ReadCancel(stop); !maybe.Exists {
+				return
+			}
+
+			vc <- maybe.V
+		}
+	}()
+
+	return vc, stop
+}
