@@ -146,3 +146,46 @@ func ExampleBroadcaster() {
 	// rc: 1
 	// rc: 2
 }
+
+func ExampleReceiver_ReadCancel() {
+	const numToWrite = 5
+	const numToRead = 3
+	var numRead int
+
+	bc := New()
+	r := bc.Listen()
+
+	for i := 0; i < numToWrite; i++ {
+		bc.Write(i)
+	}
+
+	stop := make(chan struct{})
+	process := func(v interface{}) {
+		numRead++
+
+		if numRead >= numToRead {
+			close(stop)
+		}
+
+		fmt.Println(v)
+	}
+
+	var v interface{}
+	var err error
+
+	v, err = r.ReadCancel(stop)
+	for err == nil {
+		process(v)
+		v, err = r.ReadCancel(stop)
+	}
+
+	if err != nil {
+		fmt.Println("Done reading")
+	}
+
+	// Output:
+	// 0
+	// 1
+	// 2
+	// Done reading
+}

@@ -18,6 +18,7 @@ broadcaster.
 package gibb
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/dagoof/fill"
@@ -84,25 +85,21 @@ func (r *Receiver) swap(m message) {
 	r.c = m.c
 }
 
+func always(cf func(<-chan struct{}) (interface{}, error)) interface{} {
+	v, _ := cf(make(chan struct{}))
+	return v
+}
+
 // Read a single value that has been broadcast. Blocks until messages have been
 // written.
 func (r *Receiver) Read() interface{} {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	msg := r.read()
-	r.swap(msg)
-
-	return msg.v
+	return always(r.ReadCancel)
 }
 
 // Peek reads a single value that has been broadcast and then places it back
 // onto the receiver. Blocks until messages have been written.
 func (r *Receiver) Peek() interface{} {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	return r.read().v
+	return always(r.PeekCancel)
 }
 
 // MustReadVal reads from a Receiver until it gets a value that is assignable
@@ -134,27 +131,70 @@ func (r *Receiver) ReadVal(v interface{}) bool {
 // ReadChan locks the receiver and writes any broadcasted messages to the output
 // channel. When you are ready to stop receiving messages, close the second
 // signaling channel.
-func (r *Receiver) ReadChan() (<-chan interface{}, chan struct{}) {
+func (r *Receiver) ReadChan() (<-chan interface{}, chan<- struct{}) {
 	vc := make(chan interface{})
 	cc := make(chan struct{})
 
 	go func() {
-		r.mx.Lock()
-		defer r.mx.Unlock()
 		defer close(vc)
 
 		for {
-			select {
-			case <-cc:
+			v, err := r.ReadCancel(cc)
+			if err != nil {
 				return
-			case msg := <-r.c:
-				r.c <- msg
-				r.swap(msg)
-
-				vc <- msg.v
 			}
+
+			vc <- v
 		}
 	}()
 
 	return vc, cc
+}
+
+var Cancelled = errors.New("read cancelled")
+
+func (r *Receiver) ReadCancel(c <-chan struct{}) (interface{}, error) {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	select {
+	case <-c:
+		return nil, Cancelled
+
+	default:
+	}
+
+	select {
+	case <-c:
+		return nil, Cancelled
+
+	case msg := <-r.c:
+		r.c <- msg
+		r.swap(msg)
+
+		return msg.v, nil
+	}
+
+}
+
+func (r *Receiver) PeekCancel(c <-chan struct{}) (interface{}, error) {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	select {
+	case <-c:
+		return nil, Cancelled
+
+	default:
+	}
+
+	select {
+	case <-c:
+		return nil, Cancelled
+
+	case msg := <-r.c:
+		r.c <- msg
+
+		return msg.v, nil
+	}
 }
