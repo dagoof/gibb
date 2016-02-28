@@ -170,21 +170,19 @@ func ExampleReceiver_ReadCancel() {
 		fmt.Println(v)
 	}
 
-	result := r.ReadCancel(stop)
-	for result.Okay {
-		process(result.Val)
-		result = r.ReadCancel(stop)
-	}
+	for {
+		if result := r.ReadCancel(stop); result.Okay {
+			process(result.Val)
+			continue
+		}
 
-	if !result.Okay {
-		fmt.Println("Done reading")
+		break
 	}
 
 	// Output:
 	// 0
 	// 1
 	// 2
-	// Done reading
 }
 
 func ExampleReceiver_MustReadValCancel() {
