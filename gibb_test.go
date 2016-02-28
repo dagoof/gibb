@@ -170,16 +170,13 @@ func ExampleReceiver_ReadCancel() {
 		fmt.Println(v)
 	}
 
-	var v interface{}
-	var err error
-
-	v, err = r.ReadCancel(stop)
-	for err == nil {
-		process(v)
-		v, err = r.ReadCancel(stop)
+	result := r.ReadCancel(stop)
+	for result.Okay {
+		process(result.Val)
+		result = r.ReadCancel(stop)
 	}
 
-	if err != nil {
+	if !result.Okay {
 		fmt.Println("Done reading")
 	}
 
@@ -188,4 +185,35 @@ func ExampleReceiver_ReadCancel() {
 	// 1
 	// 2
 	// Done reading
+}
+
+func ExampleReceiver_MustReadValCancel() {
+	bc := New()
+	r := bc.Listen()
+
+	bc.Write("hello")
+	bc.Write(1)
+	bc.Write("cruel")
+	bc.Write(2)
+	bc.Write("world")
+	bc.Write(true)
+	bc.Write("jk")
+
+	var s string
+	var count int
+	stop := make(chan struct{})
+
+	for r.MustReadValCancel(&s, stop) {
+		count++
+		fmt.Println(s)
+
+		if count > 2 {
+			close(stop)
+		}
+	}
+
+	// Output:
+	// hello
+	// cruel
+	// world
 }

@@ -18,7 +18,6 @@ broadcaster.
 package gibb
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/dagoof/fill"
@@ -74,6 +73,24 @@ func (b *Broadcaster) Listen() *Receiver {
 	return &Receiver{sync.Mutex{}, b.c}
 }
 
+func (r *Receiver) readCancel(c <-chan struct{}) (msg message, ok bool) {
+	select {
+	case <-c:
+		return message{}, false
+
+	default:
+	}
+
+	select {
+	case <-c:
+		return message{}, false
+
+	case msg := <-r.c:
+		r.c <- msg
+		return msg, true
+	}
+}
+
 func (r *Receiver) read() message {
 	msg := <-r.c
 	r.c <- msg
@@ -85,9 +102,8 @@ func (r *Receiver) swap(m message) {
 	r.c = m.c
 }
 
-func always(cf func(<-chan struct{}) (interface{}, error)) interface{} {
-	v, _ := cf(make(chan struct{}))
-	return v
+func always(cf func(<-chan struct{}) CancelledResult) interface{} {
+	return cf(make(chan struct{})).Val
 }
 
 // Read a single value that has been broadcast. Blocks until messages have been
@@ -139,62 +155,87 @@ func (r *Receiver) ReadChan() (<-chan interface{}, chan<- struct{}) {
 		defer close(vc)
 
 		for {
-			v, err := r.ReadCancel(cc)
-			if err != nil {
+			result := r.ReadCancel(cc)
+			if !result.Okay {
 				return
 			}
 
-			vc <- v
+			vc <- result.Val
 		}
 	}()
 
 	return vc, cc
 }
 
-var Cancelled = errors.New("read cancelled")
-
-func (r *Receiver) ReadCancel(c <-chan struct{}) (interface{}, error) {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	select {
-	case <-c:
-		return nil, Cancelled
-
-	default:
-	}
-
-	select {
-	case <-c:
-		return nil, Cancelled
-
-	case msg := <-r.c:
-		r.c <- msg
-		r.swap(msg)
-
-		return msg.v, nil
-	}
-
+type CancelledResult struct {
+	Okay bool
+	Val  interface{}
 }
 
-func (r *Receiver) PeekCancel(c <-chan struct{}) (interface{}, error) {
+func (r *Receiver) ReadCancel(c <-chan struct{}) CancelledResult {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
-	select {
-	case <-c:
-		return nil, Cancelled
-
-	default:
+	msg, ok := r.readCancel(c)
+	if ok {
+		r.swap(msg)
 	}
 
-	select {
-	case <-c:
-		return nil, Cancelled
+	return CancelledResult{ok, msg.v}
+}
 
-	case msg := <-r.c:
-		r.c <- msg
+func (r *Receiver) PeekCancel(c <-chan struct{}) CancelledResult {
+	r.mx.Lock()
+	defer r.mx.Unlock()
 
-		return msg.v, nil
+	msg, ok := r.readCancel(c)
+	return CancelledResult{ok, msg.v}
+}
+
+type CancelledFill struct {
+	DidRead bool
+	DidFill bool
+}
+
+func (cf CancelledFill) Good() bool {
+	return cf.DidRead && cf.DidFill
+}
+
+func (r *Receiver) ReadValCancel(v interface{}, c <-chan struct{}) CancelledFill {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	var result CancelledFill
+
+	msg, ok := r.readCancel(c)
+	result.DidRead = ok
+
+	if !ok {
+		return result
 	}
+
+	ok = fill.Fill(v, msg.v) == nil
+	result.DidFill = ok
+
+	if !ok {
+		return result
+	}
+
+	r.swap(msg)
+	return result
+}
+
+func (r *Receiver) MustReadValCancel(v interface{}, c <-chan struct{}) bool {
+	result := r.ReadValCancel(v, c)
+
+	for !result.Good() {
+		if !result.DidRead {
+			return false
+		}
+
+		r.Read()
+		result = r.ReadValCancel(v, c)
+	}
+
+	return true
 }
