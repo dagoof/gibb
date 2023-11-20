@@ -1,9 +1,11 @@
 package gibb
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func ExampleReceiver_Read() {
-	bc := New()
+	bc := New[interface{}]()
 	r := bc.Listen()
 
 	bc.Write("hello")
@@ -20,53 +22,9 @@ func ExampleReceiver_Read() {
 	// world
 }
 
-func ExampleReceiver_MustReadVal() {
-	bc := New()
-	r := bc.Listen()
-
-	bc.Write("hello")
-	bc.Write(1)
-	bc.Write("world")
-
-	var s string
-
-	r.MustReadVal(&s)
-	fmt.Println(s)
-	r.MustReadVal(&s)
-	fmt.Println(s)
-
-	// Output:
-	// hello
-	// world
-}
-
-func ExampleReceiver_ReadVal() {
-	bc := New()
-	r := bc.Listen()
-
-	bc.Write("hello")
-	bc.Write(1)
-	bc.Write("world")
-
-	var s string
-	var n int
-
-	fmt.Println(r.ReadVal(&s), s)
-	fmt.Println(r.ReadVal(&s), s)
-	fmt.Println(r.ReadVal(&n), n)
-	fmt.Println(r.ReadVal(&n), n)
-	fmt.Println(r.ReadVal(&s), s)
-
-	// Output:
-	// true hello
-	// false hello
-	// true 1
-	// false 1
-	// true world
-}
-
-func ExampleReceiver_ReadVal_usage() {
-	bc := New()
+/*
+func ExampleReceiver_Read_usage() {
+	bc := New[interface{}]()
 	r := bc.Listen()
 
 	const N = 4
@@ -91,11 +49,12 @@ func ExampleReceiver_ReadVal_usage() {
 	// 3
 	// done
 }
+*/
 
 func ExampleReceiver_ReadChan() {
 	const numWritten = 4
 
-	bc := New()
+	bc := New[int]()
 	r := bc.Listen()
 
 	for i := 0; i < numWritten; i++ {
@@ -122,7 +81,7 @@ func ExampleReceiver_ReadChan() {
 }
 
 func ExampleBroadcaster() {
-	bc := New()
+	bc := New[int]()
 
 	ra := bc.Listen()
 	rb := bc.Listen()
@@ -152,7 +111,7 @@ func ExampleReceiver_ReadCancel() {
 	const numToRead = 3
 	var numRead int
 
-	bc := New()
+	bc := New[int]()
 	r := bc.Listen()
 
 	for i := 0; i < numToWrite; i++ {
@@ -171,8 +130,8 @@ func ExampleReceiver_ReadCancel() {
 	}
 
 	for {
-		if result := r.ReadCancel(stop); result.Okay {
-			process(result.Val)
+		if result, ok := r.ReadCancel(stop); ok {
+			process(result)
 			continue
 		}
 
@@ -185,29 +144,31 @@ func ExampleReceiver_ReadCancel() {
 	// 2
 }
 
-func ExampleReceiver_MustReadValCancel() {
-	bc := New()
+func ExampleReceiver_ReadCancelX() {
+	bc := New[string]()
 	r := bc.Listen()
 
 	bc.Write("hello")
-	bc.Write(1)
 	bc.Write("cruel")
-	bc.Write(2)
 	bc.Write("world")
-	bc.Write(true)
 	bc.Write("jk")
 
-	var s string
-	var count int
+	count := 0
 	stop := make(chan struct{})
 
-	for r.MustReadValCancel(&s, stop) {
-		count++
-		fmt.Println(s)
+	for {
+		if result, ok := r.ReadCancel(stop); ok {
+			fmt.Println(result)
+			count++
 
-		if count > 2 {
-			close(stop)
+			if count > 2 {
+				close(stop)
+			}
+
+			continue
 		}
+
+		break
 	}
 
 	// Output:
